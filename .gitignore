@@ -6,3 +6,7 @@
 *.csv
 *.log
 *.pdf
+.Rdata
+.httr-oauth
+.DS_Store
+.quarto
