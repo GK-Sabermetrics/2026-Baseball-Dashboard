@@ -2,6 +2,7 @@ library(tidyverse)
 library(scales)
 library(kableExtra)
 library(styler)
+library(usethis)
 options(knitr.kable.NA = "")
 
 style_file("CodeTesting.R")
