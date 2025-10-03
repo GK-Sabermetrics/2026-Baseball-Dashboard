@@ -9,6 +9,8 @@ style_file("CodeTesting.R")
 
 data <- read.csv("/Users/garrettkemp/Documents/Python/Data/20241030-MercerUniversity-Private-1_unverified.csv")
 
+data = read.csv("20250308-MercerUniversity-2_unverified.csv")
+
 game <- data %>%
   mutate(
     Date = format(as.Date(data$Date), "%m/%d/%y"),
