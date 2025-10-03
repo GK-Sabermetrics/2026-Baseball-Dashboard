@@ -7,7 +7,7 @@ options(knitr.kable.NA = "")
 
 style_file("CodeTesting.R")
 
-data <- read.csv("20250308-MercerUniversity-2_unverified.csv")
+data <- read.csv("/Users/garrettkemp/Documents/Python/Data/20241030-MercerUniversity-Private-1_unverified.csv")
 
 game <- data %>%
   mutate(
@@ -58,7 +58,7 @@ pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB", "KC")
 unique(data$Pitcher)
 
 ## > Player filter ----
-player <- game %>% filter(Pitcher == "Kersey, Braydon")
+player <- game %>% filter(Pitcher == "Thomas, Zach")
 
 ## > Metrics Table ----
 pitch.metrics <-
@@ -82,6 +82,7 @@ pitch.metrics <-
         floor(x + 6)
       }
     }),
+    HHa = ifelse(HHa == 0, HHa + 12, HHa),
     MMa = round((Sa %% 1) * 60, digits = 0),
     HH = ifelse(MMa > 52, HHa + 1, HHa),
     MMb = sapply(MMa, function(x) {
@@ -101,9 +102,10 @@ pitch.metrics <-
     HAA = mean(HAA, na.rm = T) %>% round(2),
     Ext = mean(Ext, na.rm = T) %>% round(2)
   ) %>%
-  select(-Pct, -Axis, -Sa, -HHa, -MMa, -HH, -MMb, -MM) %>%
+  #select(-Pct, -Axis, -Sa, -HHa, -MMa, -HH, -MMb, -MM) %>%
   mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
   arrange(Pitch)
+pitch.metrics
 
 ## > Pitch Color Function ----
 get_pitch_colors <- function(pitch_vector) {
@@ -259,7 +261,7 @@ pcolors <- c("#d22d49", "#93afd4", "#1dbe3a", "#c3bd0e", "#00d1ed", "#933f2c", "
 
 pcolors <- setNames(pcolors, c("FB", "2SFB", "CH", "SL", "CB", "CT", "SI", "SP", "KC"))
 
-ggplot(player, aes(x = HB, y = IVB)) +
+ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
   labs(title = "Pitch Movement" ,color = "",x = "HB (in.)", y = "IVB (in.)" )  +
   xlim(-25, 25) +
   ylim(-25, 25) +
@@ -273,24 +275,24 @@ ggplot(player, aes(x = HB, y = IVB)) +
   theme(legend.position = "none", legend.text = element_text(size = 8))
 
 
+##> Alternative with elipses ----
+
+ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
+  labs(title = "Pitch Movement" ,color = "",x = "HB (in.)", y = "IVB (in.)" )  +
+  xlim(-25, 25) +
+  ylim(-25, 25) +
+  annotate("segment", x = 0, y = -25, xend = 0, yend = 25, size = 1, color = "grey55") +
+  annotate("segment", x = -25, y = 0, xend = 25, yend = 0, size = 1, color = "grey55") +
+  coord_fixed() +
+  geom_point(aes(fill = Pitch), size = 3, alpha = .85, color = "black", pch = 21) +
+  stat_ellipse(aes(fill = Pitch), type = "norm", geom = "polygon", alpha = 0.2, color = NA) +
+  scale_fill_manual(values = pcolors) +
+  theme_bw() +
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5)) +
+  theme(legend.position = "none", legend.text = element_text(size = 8))
 
 
-cor(VertRelAngle[Pitch == "FB"], VAA[Pitch == "FB"])
 
-plot(VertRelAngle[Pitch == "FB"], VAA[Pitch == "FB"])
-abline(lm(VAA[Pitch == "FB"] ~ VertRelAngle[Pitch == "FB"]), lwd = 3, col = 'red')
-  
-cor(HorzRelAngle[Pitch == "FB"], HAA[Pitch == "FB"])
-
-plot(HorzRelAngle[Pitch == "FB"], HAA[Pitch == "FB"])
-
-plot(player$VertRelAngle[player$Pitch == "FB"], player$IVB[player$Pitch == "FB"])
-
-ggplot(player, aes(HorzRelAngle, VertRelAngle)) +
-  xlim(-6, 6) +
-  ylim(-6, 6) +
-  geom_point(aes(fill = Pitch),size = 3, alpha = .85, color = "black", pch = 21) +
-  scale_fill_manual(values = pcolors) 
 
 
 
