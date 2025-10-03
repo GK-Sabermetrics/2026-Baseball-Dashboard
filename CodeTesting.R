@@ -5,6 +5,9 @@ library(styler)
 library(usethis)
 options(knitr.kable.NA = "")
 
+getAdminLTEColors()
+
+
 style_file("CodeTesting.R")
 
 data <- read.csv("/Users/garrettkemp/Documents/Python/Data/20241030-MercerUniversity-Private-1_unverified.csv")

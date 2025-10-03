@@ -2,15 +2,9 @@ library(shiny)
 library(bslib)
 library(bs4Dash)
 
-library(shiny)
-library(bs4Dash)
-
-# make the top bar color orange and the sidebar color light
-
-
 ui <- bs4DashPage(
   header = bs4DashNavbar(
-    skin = "orange", # top bar color
+    skin = 'orange', # top bar color
     border = FALSE,
     controlbarIcon = NULL,
     sidebarIcon = NULL,
@@ -19,22 +13,38 @@ ui <- bs4DashPage(
   ),
   
   sidebar = bs4DashSidebar(
-    skin = "light",
-    status = "warning",
-    title = "Navigation",
+    skin = "light", # sidebar color
+    status = "orange",
     sidebarMenu(
       menuItem("Home", tabName = "home", icon = icon("home")),
-      menuItem("Pitchers", tabName = "pitchers", icon = icon("user")),
+      menuItem("Pitching", icon = icon("chart-bar"),
+               startExpanded = FALSE,  # keep it open on load
+               menuItem("Dashboard", tabName = "dashboard", icon = icon("list"))
+      ),
       menuItem("Hitters", tabName = "hitters", icon = icon("users")),
-      menuItem("Performance Metrics", tabName = "metrics", icon = icon("chart-bar"))
+      # Dropdown
+      menuItem("Performance Metrics", icon = icon("chart-bar"),
+               startExpanded = FALSE,  # keep it open on load
+               menuItem("Leaderboards", tabName = "leaderboards", icon = icon("list")),
+               menuItem("Quality AB Leaderboard", tabName = "qab", icon = icon("check")),
+               menuItem("At Bat Breakdowns", tabName = "atbats", icon = icon("clipboard")),
+               menuItem("Heat Maps", tabName = "heatmaps", icon = icon("fire")),
+               menuItem("Hitter Reports", tabName = "hitter_reports", icon = icon("user")),
+               menuItem("Steal Breaks", tabName = "steal_breaks", icon = icon("running"))
+      )
     )
   ),
   
   body = bs4DashBody(
     tabItems(
       tabItem(tabName = "home", h2("Home Page")),
-      tabItem(tabName = "pitchers", h2("Pitcher Data")),
-      tabItem(tabName = "metrics", h2("Performance Metrics"))
+      tabItem(tabName = "leaderboards", h2("Leaderboards Page")),
+      tabItem(tabName = "qab", h2("Quality AB Leaderboard")),
+      tabItem(tabName = "atbats", h2("At Bat Breakdowns")),
+      tabItem(tabName = "heatmaps", h2("Heat Maps")),
+      tabItem(tabName = "hitter_reports", h2("Hitter Reports")),
+      tabItem(tabName = "steal_breaks", h2("Steal Breaks")),
+      tabItem(tabName = "dashboard", h2("dashboard"))
     )
   )
 )
