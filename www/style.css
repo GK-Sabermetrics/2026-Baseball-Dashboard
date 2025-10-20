@@ -1,47 +1,23 @@
-.navbar {
-  background-color: #f76800;
-  padding-top: 0px;
+/* custom.css - put this file in your app's 'www' folder */
+.main-header.navbar {
+  background-color: #f76800 !important; /* replace with your color */
 }
 
-.navbar-nav .nav-link {
-  color: white ;
-  font-size: 18px;
-  margin-right: 5px;
-  margin-top: -2px;
+/* Optional: adjust brand and link colors so they remain readable */
+.main-header .navbar-brand,
+.main-header .nav-link,
+.main-header .nav > li > a {
+  color: #ffffff !important;
 }
 
-.nav-link:hover {
-  background-color: white;
-  color: black;
+/* If you use a controlbar or other header parts, adjust them too */
+.main-header .navbar .dropdown-menu {
+  background-color: #f76800 !important;
+  color: #ffffff !important;
 }
 
 .nav-link.active {
   font-weight: 700 !important;
   color: white !important;
-  background-color: #f76800;
+  background-color: #f76800 !important;
 }
-
-.navbar-brand {
-  color: white !important;
-  font-weight: 700;
-}
-
-/*.navbar .nav-link:hover {
-  background-color: white !important;
-  color: white !important;
-  border-radius: 4px;
-} */
-
-/*.navbar-nav {
-  background-color: #f76800;
-  color: black !important;
-  border-radius: 4px;
-}
-
-.navbar-nav .nav-link {
-  color: white !important;
-}
-
-.navbar-brand {
-  color: white !important;
-} */

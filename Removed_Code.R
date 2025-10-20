@@ -25,3 +25,39 @@ page_navbar(
   nav_panel("Team"),
   nav_panel("Team"),
 )
+
+
+.navbar {
+  background-color: #f76800;
+    padding-top: 0px;
+}
+
+.navbar-nav .nav-link {
+  color: white ;
+  font-size: 18px;
+  margin-right: 5px;
+  margin-top: -2px;
+}
+
+.nav-link:hover {
+  background-color: white;
+  color: black;
+}
+
+.nav-link.active {
+  font-weight: 700 !important;
+  color: white !important;
+  background-color: #f76800;
+}
+
+.navbar-brand {
+  color: white !important;
+  font-weight: 700;
+}
+
+.main-header.navbar {
+  background-color: #f76800;
+}
+
+
+
