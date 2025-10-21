@@ -4,6 +4,9 @@ library(kableExtra)
 library(styler)
 library(usethis)
 options(knitr.kable.NA = "")
+library(DT)
+library(plotly)
+
 
 getAdminLTEColors()
 
@@ -297,7 +300,119 @@ ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
   theme(legend.position = "none", legend.text = element_text(size = 8))
 
 
+# Pitch Metrics Table Testing -----
+
+pitcher = filter(game, Pitcher == "Kersey, Braydon")
+
+pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
+
+pcolors = c('#d22d49','#93afd4', '#1dbe3a', '#c3bd0e', '#00d1ed', '#933f2c', '#de6a04', '#ddb33a', '#854cb5') 
+pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CT', 'SI', 'SP', 'KC'))
+
+color_map = c(
+  'FB' = '#d22d49',
+  '2SFB' = '#93afd4',
+  'SI' = '#de6a04',
+  'SP' = '#ddb33a',
+  'CT' = '#933f2c',
+  'CH' = '#1dbe3a',
+  'SL' = '#c3bd0e',
+  'CB' = '#00d1ed',
+  'KC' = '#854cb5'
+)
 
 
+tableA = 
+  pitcher %>% 
+  group_by(Pitch) %>% 
+  summarise(
+    "#" = n(),
+    Usage = percent(n()/length(.$Pitch)),#3
+    Max = floor(max(Velo, na.rm = TRUE)) %>% as.integer(),
+    Avg = floor(mean(Velo, na.rm = TRUE)) %>% as.integer(),
+    Spin = mean(Spin, na.rm = T) %>% as.integer(),
+    Tilt = Tilt %>% as.POSIXct(format = '%H:%M', tz = 'UTC') %>%
+      as.numeric() %>% mean(na.rm = T) %>%
+      as.POSIXct(origin = '1970-01-01', tz = 'UTC') %>%
+      format(format = "%k:%M", tz = 'UTC'),
+    HB = mean(HB, na.rm = T) %>% round(2),
+    IVB = mean(IVB, na.rm = T) %>% round(2),
+    VAA = mean(VAA, na.rm = T) %>% round(2),
+    HAA = mean(HAA, na.rm = T) %>% round(2),
+    Ext = mean(Ext, na.rm = T) %>% round(2)
+  ) %>% 
+  mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
+  arrange(Pitch)
 
+datatable(tableA, 
+          rownames = FALSE,
+          options = list(
+            dom = 't',
+            paging = FALSE,
+            ordering = FALSE,
+            columnDefs = list(
+              list(className = 'dt-center', targets = "_all")
+            )
+          )
+) %>%
+  # color only the Pitch column cells, not the entire row
+  formatStyle(
+    'Pitch',
+    backgroundColor = styleEqual(names(color_map), color_map),
+    color = 'white',
+    fontWeight = 'bold'
+  )
+
+
+# Pitcher Standings Table Testing -----
+
+TopGunTable = 
+game %>% 
+  filter(PitcherTeam == "MER_BEA") %>% 
+  group_by(Pitcher) %>% 
+  summarise(
+    Velo = max(Velo, na.rm = T),
+  ) %>%
+  arrange(desc(Velo))
+
+datatable(TopGunTable, 
+          rownames = FALSE,
+          options = list(
+            dom = 't',
+            paging = FALSE,
+            ordering = FALSE,
+            columnDefs = list(
+              list(className = 'dt-center', targets = "_all")
+            )
+          )
+) %>% formatRound('Velo', 2)
+
+# PitchMovement Graph ----
+
+plot_ly(pitcher, color = ~Pitch, colors = pcolors, source = 'PMB') %>% 
+  add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
+            marker = list(size = 8, line = list(color = 'black',width = 1)), # ADD COMMA BACK HERE
+            text = ~paste(
+                          'HB:', round(HB, 1),'in',
+                          '<br>VB:', round(IVB, 1),'in',
+                          '<br>Spin:',round(pitcher$Spin),'RPM',
+                          '<br>Ext:', round(pitcher$Ext,2), 'ft'
+                          ),
+            #hoverinfo = 'text'
+            hovertemplate = "%{text}"
+  ) %>% 
+config(displaylogo = F, displayModeBar = F) %>% 
+  layout(
+    xaxis = list(range = c(-25,25)),
+    yaxis = list(range = c(-25,25)),
+    title = "Pitch Movement",
+    showlegend = F,
+    legend = list(orientation ='h', 
+                  x = 0, 
+                  y = -200, 
+                  xanchor = 'left',
+                  yanchor = 'top',
+                  itemwidth = -1,
+                  traceorder = 'normal')
+  )
 

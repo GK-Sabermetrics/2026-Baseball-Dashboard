@@ -21,3 +21,31 @@
   color: white !important;
   background-color: #f76800 !important;
 }
+
+#PitcherMetrics table.dataTable {
+  margin-bottom: 24px !important;
+}
+
+#PitcherMetrics table.dataTable thead th {
+      background-color: #f76800 !important;
+      color: white !important;
+      font-weight: bold;
+      text-align: center;
+}
+
+table.dataTable, table.dataTable th, table.dataTable td {
+      border: 1px solid #d9d9d9 !important;
+    }
+
+table.dataTable {
+      border-collapse: collapse !important;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.brand-link {
+  background-color: #f76800 !important;
+  color: white !important;
+}
+
