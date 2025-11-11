@@ -3,6 +3,10 @@
   background-color: #f76800 !important; /* replace with your color */
 }
 
+.content-wrapper {
+  background-color: #ffffff !important; /* optional: set content background color */
+}
+
 /* Optional: adjust brand and link colors so they remain readable */
 .main-header .navbar-brand,
 .main-header .nav-link,
@@ -10,11 +14,6 @@
   color: #ffffff !important;
 }
 
-/* If you use a controlbar or other header parts, adjust them too */
-.main-header .navbar .dropdown-menu {
-  background-color: #f76800 !important;
-  color: #ffffff !important;
-}
 
 .nav-link.active {
   font-weight: 700 !important;
@@ -49,3 +48,6 @@ table.dataTable {
   color: white !important;
 }
 
+.js-plotly-plot .plotly, .js-plotly-plot .plotly div {
+  margin-top: 24px;
+}

@@ -50,3 +50,14 @@ ui <- bs4DashPage(
     )
   )
 )
+
+/* If you use a controlbar or other header parts, adjust them too */
+.main-header .navbar .dropdown-menu {
+  background-color: #f76800 !important;
+  color: #ffffff !important;
+}
+
+
+
+
+

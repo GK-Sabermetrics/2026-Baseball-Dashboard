@@ -1,0 +1,13 @@
+name: 2026-Baseball-Dashboard
+title: 2026-Baseball-Dashboard
+username: mubaseballanalytics
+account: mubaseballanalytics
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16026667
+bundleId: 11160772
+url: https://mubaseballanalytics.shinyapps.io/2026-Baseball-Dashboard/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: 20250308-MercerUniversity-2_unverified.csv|CodeTesting.R|Notes|Removed_Code.R|Shiny-Run.R

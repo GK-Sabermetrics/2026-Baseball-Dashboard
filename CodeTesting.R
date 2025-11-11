@@ -26,6 +26,7 @@ game <- data %>%
       Cutter = "CT", Splitter = "SP", ChangeUp = "CH", Slider = "SL",
       Curveball = "CB", KnuckleBall = "KC"
     ),
+    PlayResult = ifelse(KorBB != "Undefined", KorBB, PlayResult),
     PitchCall = recode(PitchCall,
       BallCalled = "Ball", BallinDirt = "Ball",
       FoulBallNotFieldable = "Foul", FoulBallFieldable = "Foul"
@@ -58,6 +59,9 @@ game <-
   ungroup() %>%
   mutate(VDiff = FBV - Velo)
 
+
+# Pitcher Filter ----
+pitcher = filter(game, Pitcher == "Ackerman, Jess")
 
 
 pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB", "KC")
@@ -285,7 +289,7 @@ ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
 
 ##> Alternative with elipses ----
 
-ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
+ggplot(pitcher, aes(x = HB, y = IVB, color = Pitch)) +
   labs(title = "Pitch Movement" ,color = "",x = "HB (in.)", y = "IVB (in.)" )  +
   xlim(-25, 25) +
   ylim(-25, 25) +
@@ -301,8 +305,6 @@ ggplot(player, aes(x = HB, y = IVB, color = Pitch)) +
 
 
 # Pitch Metrics Table Testing -----
-
-pitcher = filter(game, Pitcher == "Kersey, Braydon")
 
 pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
 
@@ -321,9 +323,7 @@ color_map = c(
   'KC' = '#854cb5'
 )
 
-
-tableA = 
-  pitcher %>% 
+pitcher %>% 
   group_by(Pitch) %>% 
   summarise(
     "#" = n(),
@@ -331,15 +331,34 @@ tableA =
     Max = floor(max(Velo, na.rm = TRUE)) %>% as.integer(),
     Avg = floor(mean(Velo, na.rm = TRUE)) %>% as.integer(),
     Spin = mean(Spin, na.rm = T) %>% as.integer(),
-    Tilt = Tilt %>% as.POSIXct(format = '%H:%M', tz = 'UTC') %>%
-      as.numeric() %>% mean(na.rm = T) %>%
-      as.POSIXct(origin = '1970-01-01', tz = 'UTC') %>%
-      format(format = "%k:%M", tz = 'UTC'),
+    Axis = mean(SpinAxis, na.rm = T),
+    Sa = Axis / 30,
+    HHa = sapply(Sa, function(x) {
+      if (Axis > 180 & Axis < 360) {
+        floor(x - 6)
+      } else if (Axis == 180) {
+        12
+      } else {
+        floor(x + 6)
+      }
+    }),
+    HHa = ifelse(HHa == 0, HHa + 12, HHa),
+    MMa = round((Sa %% 1) * 60, digits = 0),
+    HH = ifelse(MMa > 52, HHa + 1, HHa),
+    HH = ifelse(HH == 13, 1, HH),
+    MMb = sapply(MMa, function(x) {
+      if (x < 8) {
+        0
+      } else if (x >= 8 & x <= 52) {
+        round(x / 15) * 15
+      } else {
+        0
+      }
+    }),
+    MM = formatC(MMb, width = 2, flag = "0"),
+    Tilt = paste(HH, MM, sep = ":"),
     HB = mean(HB, na.rm = T) %>% round(2),
     IVB = mean(IVB, na.rm = T) %>% round(2),
-    VAA = mean(VAA, na.rm = T) %>% round(2),
-    HAA = mean(HAA, na.rm = T) %>% round(2),
-    Ext = mean(Ext, na.rm = T) %>% round(2)
   ) %>% 
   mutate(Pitch = factor(Pitch, levels = pitch_order)) %>%
   arrange(Pitch)
@@ -389,9 +408,9 @@ datatable(TopGunTable,
 
 # PitchMovement Graph ----
 
-plot_ly(pitcher, color = ~Pitch, colors = pcolors, source = 'PMB') %>% 
+plot_ly(pitcher, color = ~Pitch, colors = color_map) %>% 
   add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
-            marker = list(size = 8, line = list(color = 'black',width = 1)), # ADD COMMA BACK HERE
+            marker = list(size = 8, line = list(color = 'black',width = 1)),
             text = ~paste(
                           'HB:', round(HB, 1),'in',
                           '<br>VB:', round(IVB, 1),'in',
@@ -415,4 +434,88 @@ config(displaylogo = F, displayModeBar = F) %>%
                   itemwidth = -1,
                   traceorder = 'normal')
   )
+
+# Strike Zone ----
+
+plot_ly(pitcher, color = ~Pitch, colors = color_map) %>% 
+  add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+            marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+            #text = ~paste(
+            #  PitchingDF()$PitchCall,
+            #  "<br>",PitchingDF()$HitType,
+            #  "<br>",PitchingDF()$PlayResult
+            #              ), 
+            #hoverinfo = 'text'
+            text = ~PitchCall,
+            customdata = paste0(pitcher$TaggedHitType, "\n", pitcher$PlayResult),
+            hovertemplate = "%{text}<extra>%{customdata}</extra>"
+  ) %>% 
+  config(displayModeBar = F) %>% 
+  layout(
+    xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+    yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
+    title = "Strike Zone",
+    showlegend = F,
+    shapes = list(
+      list(
+        type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'below'
+      ),
+      #Draw Plate
+      list(
+        type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.15,y1 = 0.15, layer = 'below'
+      ),
+      list(
+        type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+      ),
+      list(
+        type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.15,y1 = 0.3, layer = 'below'
+      ),
+      list(
+        type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+      ),
+      list(
+        type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.5, layer = 'below'
+      ),
+      #End Draw Plate
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'below',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'below',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',
+        x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'below',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      )
+    )
+  )
+
+# Release Point ----
+plot_ly(pitcher, color = ~Pitch, colors = color_map) %>% 
+  add_trace(x = ~RelSide, y = ~RelHeight, type = 'scatter', mode = 'markers', 
+            marker = list(size = 8, line = list(color = 'black', width = 1))) %>% 
+config(displayModeBar = F) %>% 
+  layout(
+    xaxis = list(range = c(-5,5)),
+    yaxis = list(range = c(4, 7)),
+    title = "Pitch Release Points",
+    showlegend = F,
+    shapes = list(
+      list(
+        type = 'line',x0 = -5,x1 = 5,y0 = 5,y1 = 5,layer = 'below'
+      )
+    ))
+
+unique(game$PitchCall)
+
+
+
+
 
