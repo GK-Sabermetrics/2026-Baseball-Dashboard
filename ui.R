@@ -27,12 +27,12 @@ ui <- tagList(
       sidebarMenu(
         # Uncomment home and leaderboard when done working on singular page
         #menuItem("Home", tabName = "home", icon = icon("home")),
-        menuItem("Pitchers",
-          icon = icon("baseball"),
-          startExpanded = FALSE,
-          #menuItem("Leaderboard", tabName = "pitcherleaderboard", icon = icon("list")),
-          menuItem("Dashboard", tabName = "pitcher_dashboard", icon = icon("list"))
-        ),
+        #menuItem("Pitchers",
+        #  icon = icon("baseball"),
+        #  startExpanded = FALSE,
+        #  #menuItem("Leaderboard", tabName = "pitcherleaderboard", icon = icon("list")),
+        #  menuItem("Dashboard", tabName = "pitcher_dashboard", icon = icon("list"))
+        #),
         menuItem("Hitters", 
           icon = icon("baseball-bat-ball"),
           startExpanded = FALSE,
@@ -74,7 +74,7 @@ ui <- tagList(
             column(2, selectInput("pitcher_select", "Select Pitcher:", choices = NULL)),
             column(1, selectInput("pitcher_date_select", "Select Date:", choices = NULL)),
             column(1, selectizeInput("batter_hand_select", "Batter Hand:",
-                                     choices = c("L" = "Left", "R" = "Right"), selected = c("L" = "Left", "R" = "Right"), multiple = TRUE,
+                                     choices = c("L"="Left","R"='Right'), selected = c("L"="Left","R"='Right'), multiple = TRUE,
                                      options = list(plugins = list("remove_button"))
             )),
             column(2, selectizeInput("pitcher_pitch_type_select", "Pitch Type:",
@@ -88,7 +88,7 @@ ui <- tagList(
             column(3, selectizeInput("pitcher_hit_type_select", "Hit Type:",
               choices = NULL, selected = NULL, multiple = TRUE,
               options = list(plugins = list("remove_button"))
-            )),
+            ))
           ),
           fluidRow(
             column(2, selectizeInput("pitcher_outs_select", "Outs:",
@@ -124,15 +124,15 @@ ui <- tagList(
           DT::dataTableOutput("PitcherMetrics"),
           tabsetPanel(
             tabPanel(
-              "Pitch Report",
+              "Pitcher Report",
               fluidRow(
                 column(4,div(style = "margin-top: 24px;", plotlyOutput("PitchMovementPlot1"))),
-                column(4,div(style = "margin-top: 24px;", plotlyOutput("StrikeZone1"))),
+                column(4,div(style = "margin-top: 24px;", plotlyOutput("PitcherStrikeZone1"))),
                 column(4,div(style = "margin-top: 24px;", plotlyOutput("ReleasePoint1")))
               )
             ),
-            tabPanel("Pitch Velocity", plotOutput("veloPlot")),
-            tabPanel("Pitch Movement", plotOutput("pitch_movement_plot"))
+            tabPanel("Pitch Velocity"),
+            tabPanel("Pitch Movement", plotOutput("PitchMovementPlot"))
           )
         ),
         tabItem(tabName = "hitter_dashboard",
@@ -141,9 +141,9 @@ ui <- tagList(
                                   choices = c("FALL", "SPRING"), selected = "FALL"
             )),
             column(2, selectInput("hitter_select", "Select Hitter:", choices = NULL)),
-            column(1, selectInput("hitter_date_select", "Select Date:", choices = NULL)),
-            column(2, selectizeInput("pitcher_hand_hitter_select", "Pitcher Hand:",
-                                     choices = c("L" = "Left", "R" = "Right"), selected = c("L" = "Left", "R" = "Right"), multiple = TRUE,
+            column(2, selectInput("hitter_date_select", "Select Date:", choices = NULL)),
+            column(1, selectizeInput("pitcher_hand_select", "Pitcher Hand:",
+                                     choices = c("Left", "Right"), selected = c("Left", "Right"), multiple = TRUE,
                                      options = list(plugins = list("remove_button"))
             )),
             column(2, selectizeInput("hitter_pitch_type_select", "Pitch Type:",
@@ -153,15 +153,50 @@ ui <- tagList(
             column(2, selectizeInput("hitter_pitch_call_select", "Pitch Call:",
                                      choices = NULL, selected = NULL, multiple = TRUE,
                                      options = list(plugins = list("remove_button"))
+            )),
+            column(2, selectizeInput("hitter_hit_type_select", "Hit Type:",
+                                     choices = NULL, selected = NULL, multiple = TRUE,
+                                     options = list(plugins = list("remove_button"))
             ))
           ),
-          DT::dataTableOutput("HitterMetrics"),
+          fluidRow(
+            column(2, selectizeInput("hitter_outs_select", "Outs:",
+                                     choices = c("0", "1", "2"), selected = NULL, multiple = TRUE,
+                                     options = list(plugins = list("remove_button"))
+            )),
+            conditionalPanel(
+              condition = "input.hitter_balls_select == '' && input.hitter_strikes_select == ''",
+              selectizeInput("hitter_count_select", "Count:",
+                             choices = NULL, selected = NULL, multiple = TRUE,
+                             options = list(plugins = list("remove_button"))
+              ),
+            ),
+            conditionalPanel(
+              condition = "input.hitter_count_select == ''",
+              selectizeInput("hitter_balls_select", "Balls:",
+                             choices = NULL, selected = NULL, multiple = TRUE,
+                             options = list(plugins = list("remove_button"))
+              ),
+            ),
+            conditionalPanel(
+              condition = "input.hitter_count_select == ''",
+              selectizeInput("hitter_strikes_select", "Strikes:",
+                             choices = NULL, selected = NULL, multiple = TRUE,
+                             options = list(plugins = list("remove_button"))
+              ),
+            ),
+            selectizeInput('hitter_PA_result_select', 'PA Result:',
+                           choices = NULL, selected = NULL, multiple = TRUE,
+                           options = list(plugins = list("remove_button"))
+            ),
+          ),
+          DT::dataTableOutput("HitterMetricsTable"),
           tabsetPanel(
             tabPanel("Hitter Report",
               fluidRow(
-                column(4,div(style = "margin-top: 24px;", plotlyOutput("HitterHeatMap"))),
-                column(4,div(style = "margin-top: 24px;", plotlyOutput("StrikeZoneHitter"))),
-                column(4,div(style = "margin-top: 24px;", plotlyOutput("ReleasePointHitter")))
+                column(4,div(style = "margin-top: 24px;", plotlyOutput("HitterContactChart1"))),
+                column(4,div(style = "margin-top: 24px;", plotlyOutput("HitterStrikeZone1"))),
+                column(4,div(style = "margin-top: 24px;", plotlyOutput("HitterLaunchExit1")))
               )
             )
           )

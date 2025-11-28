@@ -6,16 +6,17 @@ library(usethis)
 options(knitr.kable.NA = "")
 library(DT)
 library(plotly)
+library(readxl)
+library(htmltools)
 
 
 getAdminLTEColors()
 
+data.frame(colnames(data), 1:ncol(data))
 
-style_file("CodeTesting.R")
-
-data <- read.csv("/Users/garrettkemp/Documents/Python/Data/20241030-MercerUniversity-Private-1_unverified.csv")
-
-data = read.csv("20250308-MercerUniversity-2_unverified.csv")
+data = read_xlsx('2025-2026_Data copy.xlsx', sheet = 1)
+data = data %>% select(-4,-8,-12,-15,-29, -52:-54,-56, -61:-69,-72:-76,-81:-83,
+                       -87:-96, -98, -101:-110, -112:-138, -146:-168)
 
 game <- data %>%
   mutate(
@@ -32,8 +33,8 @@ game <- data %>%
       FoulBallNotFieldable = "Foul", FoulBallFieldable = "Foul"
     ),
     KorBB = recode(KorBB, Strikeout = "Strikeout", Walk = "Walk", Undefined = ""),
-    `Top.Bottom` = recode(`Top.Bottom`, Top = "T", Bottom = "B"),
-    Inn = paste(`Top.Bottom`, Inning, sep = " "),
+    `Top/Bottom` = recode(`Top/Bottom`, Top = "T", Bottom = "B"),
+    Inn = paste(`Top/Bottom`, Inning, sep = " "),
     ABlabel = paste(Inn, PAofInning, sep = "-"),
     Zone = ifelse(between(PlateLocHeight, 1.379, 3.6208) &
       between(PlateLocSide, -0.8288, 0.8288), 1, 0)
@@ -52,7 +53,7 @@ game <- data %>%
 game <-
   game %>%
   group_by(Date, Batter) %>%
-  mutate(AB = dense_rank(ABlabel), .after = Time) %>%
+  mutate(AB = dense_rank(ABlabel), .after = Date) %>%
   ungroup() %>%
   group_by(Pitcher) %>%
   mutate(FBV = mean(Velo[Pitch %in% c("FB", "2SFB")], na.rm = T)) %>%
@@ -311,6 +312,7 @@ pitch_order <- c("FB", "2SFB", "SI", "CT", "SP", "CH", "SL", "CB","KC")
 pcolors = c('#d22d49','#93afd4', '#1dbe3a', '#c3bd0e', '#00d1ed', '#933f2c', '#de6a04', '#ddb33a', '#854cb5') 
 pcolors = setNames(pcolors, c('FB', '2SFB', 'CH', 'SL', 'CB', 'CT', 'SI', 'SP', 'KC'))
 
+#!!! Color Map ----
 color_map = c(
   'FB' = '#d22d49',
   '2SFB' = '#93afd4',
@@ -515,6 +517,500 @@ config(displayModeBar = F) %>%
 
 unique(game$PitchCall)
 
+# Hitting -----
+
+#__Strike Zone Hitter ----
+
+hitter = filter(game, Batter == "Decker, Kai")
+
+plot_ly(hitter, color = ~Pitch, colors = color_map) %>% 
+  add_trace(x = ~-PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+            marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+            #text = ~paste(
+            #  PitchingDF()$PitchCall,
+            #  "<br>",PitchingDF()$HitType,
+            #  "<br>",PitchingDF()$PlayResult
+            #              ), 
+            #hoverinfo = 'text'
+            text = ~PitchCall,
+            customdata = paste0(hitter$TaggedHitType, "\n", hitter$PlayResult),
+            hovertemplate = "%{text}<extra>%{customdata}</extra>"
+  ) %>% 
+  config(displayModeBar = F) %>% 
+  layout(
+    dragmode = FALSE,
+    xaxis = list(range = c(-3,3), showgrid = T, zeroline = F, title = NA),
+    yaxis = list(range = c(-0.5,5), showgrid = T, zeroline = F, title = NA),
+    title = "Strike Zone",
+    showlegend = F,
+    shapes = list(
+      list(type = "rect",x0 = -0.708,x1 = 0.708,y0 = 1.5,y1 = 3.5, layer = 'above'),
+      #Draw Plate
+      # Front of Plate
+      list(type = "line",x0 = -0.708,x1 = 0.708,y0 = 0.5,y1 = 0.5, layer = 'above'),
+      #Left side of plate
+      list(type = "line",x0 = -0.708,x1 = -0.708,y0 = 0.3,y1 = 0.5, layer = 'above'),
+      #Right side of plate
+      list(type = "line",x0 = 0.708,x1 = 0.708,y0 = 0.3,y1 = 0.5, layer = 'above'),
+      #Right angle side of plate
+      list(type = "line",x0 = 0.708,x1 = 0,y0 = 0.3,y1 = 0.15, layer = 'above'),
+      #Left angle side of plate
+      list(type = "line",x0 = -0.708,x1 = 0,y0 = 0.3,y1 = 0.15, layer = 'above'),
+      #End Draw Plate
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.167,y1 = 2.167,layer = 'above',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.708,x1 = 0.708,y0 = 2.833,y1 = 2.833,layer = 'above',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',x0 = -0.277,x1 = -0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      ),
+      list(
+        type = 'line',
+        x0 = 0.277,x1 = 0.277,y0 = 1.5,y1 = 3.5,layer = 'above',
+        line = list(dash = 'dash', color = 'grey', width = 3)
+      )
+    )
+  )
+
+hitterPlate <- data.frame(
+  x0 = c(-0.708, -0.708, 0.708, -0.708, 0),
+  y0 = c(0.25, 0.25, 0.25, 0.15, 0),
+  x1 = c(0.708, -0.708, 0.708, 0, 0.708),
+  y1 = c(0.25, 0.15, 0.15, 0, 0.15)
+)
+ZoneLines = data.frame(
+  x0 = c(-0.2763888, 0.2763888, -0.8291667, -0.8291667),
+  y0 = c(1.5, 1.5, 2.166667, 2.833333),
+  x1 = c(-0.2763888, 0.2763888, 0.8291667, 0.8291667),
+  y1 = c(3.5, 3.5, 2.166667, 2.833333)
+)
+# Add a rectangle from (2, 2) to (3, 3)
+Zone_list <- list(
+  type = "rect",
+  x0 = -0.8291667, y0 = 1.5,
+  x1 = 0.8291667, y1 = 3.5,
+  line = list(color = "black", width = 3),
+  layer = 'below'
+)
+# Convert each row to a shape list
+ZoneMark_list <- pmap(ZoneLines, function(x0, y0, x1, y1) {
+  list(type = "line",
+       x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+       line = list(color = "black", width = 3, dash = 'dash'),
+       layer = 'below'
+  )
+})
+# Convert each row to a shape list
+Plate_list <- pmap(hitterPlate, function(x0, y0, x1, y1) {
+  list(type = "line",
+       x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+       line = list(color = "black", width = 3),
+       layer = 'below'
+  )
+})
+# Combine the shapes into a single list
+all_shapes <- append(Plate_list, c(list(Zone_list), ZoneMark_list))
+
+plot_ly(hitter, color = ~Pitch, colors = color_map) %>%
+  add_trace(x = ~-PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers', 
+            marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+            text = ~paste0(PitchCall,ifelse(TaggedHitType == 'Undefined', "", paste0("<br>",TaggedHitType))),
+            customdata = ~Pitch,
+            hovertemplate = "%{text}<extra>%{customdata}</extra>"
+            ) %>% 
+  layout(
+    xaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-3, 3)),
+    yaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-1, 5)),
+    showlegend = F,
+    shapes = all_shapes
+  )
+
+ifelse(TaggedHitType == 'Undefined', "", paste0("<br>",TaggedHitType))
+
+# Hitter Metrics Table -----
+
+hitter = filter(game, Batter == "Baughcum, Brant")
+
+hitter %>% filter(Pitch == "SL") %>% select(Date, Pitch, PitchCall, TaggedHitType, HitSpinRate)
+
+HitterMetrics <-
+  hitter %>%
+  group_by(PitcherThrows) %>%
+  summarise(
+    "#" = n(),
+    "%" = percent(n() / length(.$Pitch)),
+    "H" = length(which(PlayResult %in% c("Single", "Double", "Triple", "HomeRun"))),
+    'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+    'K' = length(which(PAOutcome == 'Strikeout')),
+    'E' = length(which(PlayResult == 'Error')),
+    'O' = length(which(PlayResult == 'Out')),
+    'PA' = length(which(Count == '0-0')),
+    'AB' = FC + H + E + O + K,
+    "Avg EV" = mean(ExitSpeed, na.rm = TRUE),
+    "Max EV" = max(ExitSpeed, na.rm = TRUE),
+    "LA" = mean(Angle, na.rm = TRUE),
+    "Hit Spin" = mean(HitSpinRate, na.rm = TRUE),
+    "Hard-Hit %" = (length(which(ExitSpeed>95))/n()) %>% percent(2),
+    "Barrel %" = (length(which(ExitSpeed >= 95 & Angle >= 10 & Angle <= 35))/n()) %>% percent(2)
+  ) %>% column_to_rownames(var = "PitcherThrows") %>% 
+  select(-FC,-K,-E,-O) %>% mutate(across(where(is.numeric), round, 2))
+HitterMetrics
+
+datatable(HitterMetrics, 
+          rownames = TRUE,
+          options = list(
+            dom = 't',
+            paging = FALSE,
+            ordering = FALSE,
+            columnDefs = list(
+              list(className = 'dt-center', targets = "_all")
+            )
+          )
+)
+
+
+# Spray chart testing ----
+
+game %>% 
+  filter(PitchCall == "InPlay") %>% 
+  select(Pitch, ExitSpeed, Angle, Direction, Distance, Bearing)
+
+spray <- game %>%
+  #filter(Batter == "Thompson, Zack") %>% 
+  filter(PitchCall == 'InPlay') %>% 
+  filter(!is.na(Distance), !is.na(Bearing)) %>%
+  mutate(
+    x = Distance * sin(Bearing * pi/180),  # convert degrees → radians
+    y = Distance * cos(Bearing * pi/180)
+  )
+
+
+game %>% filter(PitchCall == 'InPlay') %>% 
+  filter(!is.na(Distance), !is.na(Bearing)) %>%
+  mutate(
+    x = Distance * sin(Bearing * pi/180),  # convert degrees → radians
+    y = Distance * cos(Bearing * pi/180),
+    theta_rad = (Bearing) * pi/180,
+    xt = sin(theta_rad) * Distance,
+    yt = cos(theta_rad) * Distance
+  ) %>% select(x,y,theta_rad,xt, yt)
+
+ggplot(spray, aes(x = x, y = y, color = PlayResult)) +
+  coord_fixed() +
+  xlim(-270,270) +
+  ylim(-50,400) +
+  theme_minimal() +
+  geom_segment(aes(x=0,y=0,xend=226,yend=226), linewidth = 1, color = 'black') +
+  geom_segment(aes(x=0,y=0,xend=-234,yend=234), linewidth = 1, color = 'black') +
+  geom_segment(aes(x=60,y=60,xend=0,yend=120), linewidth = 1, color = 'black') +
+  geom_segment(aes(x=-60,y=60,xend=0,yend=120), linewidth = 1, color = 'black') +
+  geom_curve(aes(x=-234,y=234,xend=226,yend=226), curvature = -.64, ncp = 4, linewidth = 1, color = 'black') +
+  geom_curve(aes(x=-90,y=90,xend=90,yend=90), curvature = -.75, linewidth = 1, ncp = 7, color = 'black') +
+  theme_void() + 
+  geom_point(size = 3, alpha = 0.7) +
+  labs(title = "Spray Chart",
+       x = "Left ←   Field   → Right",
+       y = "Distance from Home Plate (ft)")
+
+
+plot_ly(spray, color = ~PlayResult) %>% 
+  add_trace(x = ~x, y = ~y, type = 'scatter', mode = 'markers',
+            marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
+            #text = ~paste(
+            #  PitchingDF()$PitchCall,
+            #  "<br>",PitchingDF()$HitType,
+            #  "<br>",PitchingDF()$PlayResult
+            #              ), 
+            #hoverinfo = 'text'
+            text = ~TaggedHitType,
+            customdata = paste0(spray$TaggedHitType, "\n", spray$PlayResult),
+            hovertemplate = "%{text}<extra>%{customdata}</extra>"
+  ) %>% 
+  config(displayModeBar = F) %>% 
+  layout(
+    dragmode = FALSE,
+    xaxis = list(range = c(-270,270), showgrid = F, zeroline = F, title = NA),
+    yaxis = list(range = c(-50,450), showgrid = F, zeroline = F, title = NA),
+    #title = "Strike Zone",
+    showlegend = F,
+    shapes = list(
+    )
+  )
+
+# Create smooth fence arc (from LF to RF)
+angles <- seq(-90, 90, length.out = 200)
+theta_rad <- (90 - angles) * pi / 180
+arc_x <- cos(theta_rad) * fence_radius
+arc_y <- sin(theta_rad) * fence_radius
+
+
+# Simple curved outfield wall (semi-circle)
+fence_radius <- 380   # You can change this
+angles <- seq(-90, 90, length.out = 200)  # Left to right field
+theta_rad <- (90 - angles) * pi / 180
+arc_x <- cos(theta_rad) * fence_radius
+arc_y <- sin(theta_rad) * fence_radius
+
+
+
+
+fence_points = data.frame(
+  angle = c(-45, -22.5, 0, 22.5, 45),
+  dist = c(330, 365, 380, 345, 320)
+)
+# Create smooth fence arc
+all_angles <- seq(-45, 45, length.out = 180)
+smooth_dists <- approx(fence_points$angle, fence_points$dist, xout = all_angles)$y
+arc_x <- cos((90 - all_angles) * pi / 180) * smooth_dists
+arc_y <- sin((90 - all_angles) * pi / 180) * smooth_dists
+# Define foul lines (home to LF & RF)
+foul_line_LF <- data.frame(x = c(0, arc_x[1]), y = c(0, arc_y[1]))
+foul_line_RF <- data.frame(x = c(0, arc_x[length(arc_x)]), y = c(0, arc_y[length(arc_y)]))
+# Infield diamond (90 ft bases). We'll draw a rotated square (diamond) centered along home->infield.
+base_dist <- 90
+# Diamond coordinates relative to home: using classic orientation (home at origin, second base up the y axis)
+home <- c(0,0)
+first <- c(base_dist, base_dist) * (1/sqrt(2))
+second <- c(0, base_dist * sqrt(2))
+third <- c(-base_dist, base_dist) * (1/sqrt(2))
+diamond_x <- c(home[1], first[1], second[1], third[1], home[1])
+diamond_y <- c(home[2], first[2], second[2], third[2], home[2])
+p <- plot_ly(
+  data = spray,
+  x = ~x,
+  y = ~y,
+  color = ~PlayResult,
+  type = "scatter",
+  mode = "markers",
+  marker = list(size = 8, opacity = 1, line = list(width = 0.5, color = "#222222")),
+  text = ~Distance
+  #hoverinfo = "text"
+)
+p %>% 
+layout(
+  #title = list(text = title, x = 0.02),
+  xaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-270, 270)),
+  yaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-20, 450)),
+  showlegend = F,
+  shapes = list(
+    # Outfield arc (drawn as path)
+    list( # Curved Fence
+      type = "path",
+      path = paste0("M ", paste(sprintf("%.2f %.2f", arc_x, arc_y), collapse = " L ")),
+      layer = 'below',
+      line = list(color = "black", width = 3)
+    ),
+    list( # Left Foul Line
+      type = "line",
+      x0 = 0, y0 = 0,
+      x1 = -233, y1 = 233,
+      layer = 'below',
+      line = list(color = "black", width = 3)
+    ),
+    list( # Right Foul Line
+      type = "line",
+      x0 = 0, y0 = 0,
+      x1 = 226, y1 = 226,
+      layer = 'below',
+      line = list(color = "black", width = 3)
+    ),
+    # Infield diamond
+    list(type = "path",
+         path = paste0("M ", paste0(sprintf("%.2f %.2f", diamond_x, diamond_y), collapse = " L "), " Z"),
+         line = list(color = "rgba(139,69,19,0.9)", width = 1.5),
+         layer = 'below',
+         fillcolor = "rgba(210,180,140,0.05)"
+    )
+  )
+) %>%
+  config(displayModeBar = TRUE)
+
+# Launch Exit Scatter ----
+library("RColorBrewer")
+brewer.pal.info
+
+df = game %>% filter(Date == "11/01/25")
+
+# Set thresholds & grouping for hit quality zones (common in MLB visuals)
+df <- df %>%
+  mutate(
+    quality = case_when(
+      ExitSpeed >= 95 & Angle >= 10 & Angle <= 35 ~ "Barrel",
+      ExitSpeed >= 90 & Angle >= 0 & Angle <= 40 ~ "Solid Contact",
+      ExitSpeed >= 80 & Angle >= -10 & Angle <= 50 ~ "Flare/Burner",
+      TRUE ~ "Poor Contact"
+    )
+  )
+
+df <- df %>%
+  mutate(
+    contact_type = case_when(
+      Angle > 50 ~ "Pop Up",
+      Angle > 30 & Angle <= 50 ~ "Fly Ball",
+      Angle > 25 & Angle <= 30 ~ "Gap Split/Wall Bang",
+      Angle > 20 & Angle <= 25 ~ "OF Line Drive",
+      Angle > 15 & Angle <= 20 ~ "Looping Line",
+      Angle > 5 & Angle <= 15 ~ "Line Drive",
+      Angle > 0 & Angle <= 5 ~ "Power GB",
+      Angle > -5 & Angle <= 0 ~ "Hard GB",
+      Angle > -10 & Angle <= -5 ~ "Weak GB",
+      TRUE ~ "Weak Contact"
+    )
+  )
+
+df %>% filter(PitchCall == "InPlay") %>% 
+select(Angle, ExitSpeed, TaggedHitType, contact_type, PlayResult)
+
+
+df = df %>% mutate(
+  theta = 90 - Angle   # Savant style: 90° = straight CF
+) #%>% filter(!is.na(ExitSpeed))
+
+plot_ly(
+  data = df, type = 'scatterpolar', mode = 'markers', r = ~ExitSpeed, theta = ~theta,
+  marker = list(size = 8, opacity = 0.8, color = ~ExitSpeed, colorscale = 'RdBu', showscale = TRUE),
+  text = ~Angle,
+  hovertemplate = paste(
+    "<b>Exit Velo:</b> %{r} mph<br>",
+    "<b>Launch Angle:</b> %{text}°<br>",
+    "<extra></extra>"
+  )
+) %>%
+  layout(
+    title = list(text = "Exit Launch Scatter Chart", x=.5, font = list(size = 15)),
+    polar = list(
+      sector = c(-90, 90),
+      radialaxis = list(
+        #title = "Exit Velocity (mph)",
+        range = c(20, 120),       # Adjust to your data
+        angle = 90,              # Put labels on top
+        tickfont = list(size = 12, color = 'black'),
+        tickangle = 90
+      ),
+      angularaxis = list(
+        direction = "clockwise",
+        rotation = 90,           # 90° = CF
+        tickvals = c(0, 30, 60, 90, 120, 150, 180),
+        ticktext = c("90", "60", "30", "0", "-30", '-60', '-90'),
+        tickfont = list(size = 10)
+      )
+    ),
+    showlegend = F
+  )
+
+#tickvals = c(0, 45, 90, 135, 180),
+#ticktext = c("90°", "45°", "0°", "-45°", "-90°"),
+#
+#tickvals = c(0, 30, 60, 90, 120, 150, 180),
+#ticktext = c("90", "60", "30", "0", "-30", '-60', '-90'),
+#
+#tickvals = c(0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180),
+#ticktext = c("90",'75','60',"45","30",'15',"0","-15",'-30','-45','-60','-75','-90'),
+
+# Contact Chart -------
+
+contact_shapes <- data.frame(
+  x0 = c(-0.708, -0.708, 0.708, 0.708, -0.708, -1.191, -1.191, 1.191, 1.191),
+  y0 = c(1.416, 1.416, 1.416, 0.7076667, 0.7076667, -1, 3.6, -1, 3.6),
+  x1 = c(0.708, -0.708, 0.708, 0, 0, -1.191, -2, 1.191, 2),
+  y1 = c(1.416, 0.7076667, 0.7076667, 0, 0, 3.6, 3.6, 3.6, 3.6)
+)
+
+# Convert each row to a shape list
+contact_shapes_list <- pmap(contact_shapes, function(x0, y0, x1, y1) {
+  list(type = "line",
+       x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+       line = list(color = "black", width = 3),
+       layer = 'below'
+  )
+})
+
+contactdf = data.frame(
+  x = c(0.85, 0.20),
+  y = c(2.12, 2.46)
+)
+
+data = read_xlsx('/Users/garrettkemp/Documents/R-Files/Baseball-Dashboard-New/Data/2025 Spring Data.xlsx', sheet = 'Season')
+
+df = game %>% filter(Batter == "Decker, Kai" & PitchCall == "InPlay")
+
+df = data %>% filter(Date == as.Date('2025-02-26') & BatterTeam == "MER_BEA")
+
+plot_ly(
+  data = df,
+  x = ~ContactPositionZ,
+  y = ~ContactPositionX,
+  type = "scatter",
+  mode = "markers",
+  marker = list(
+    size = 10,
+    opacity = 1,
+    color = ~ExitSpeed,
+    colorscale = "RdBu",
+    line = list(width = 0.5, color = "#222222")
+  ),
+  text = ~paste("EV:", ExitSpeed, "<br>", TaggedHitType),
+  customdata = ~PitchNo,
+  hovertemplate = "%{text}<extra>%{customdata}</extra>"
+) %>%
+  layout(
+    title = "Contact Chart",
+    xaxis = list(title = "Horizontal Distance from Center of Plate (ft)", zeroline = FALSE, 
+                 showgrid = FALSE, range = c(-2, 2)),
+    yaxis = list(title = "Vertical Distance from Plate (ft)", zeroline = FALSE, 
+                 showgrid = FALSE, range = c(-1, 5)),
+    shapes = contact_shapes_list,
+    showlegend = FALSE
+  )
+
+plot_ly(df, color = ~ExitSpeed) %>%
+  add_trace(x = ~ContactPositionZ, y = ~ContactPositionX, type = 'scatter', 
+            mode = 'markers', 
+            marker = list(size = 10, colorscale = "RdBu")
+            ) %>% 
+  layout(
+    title = "Contact Chart",
+    xaxis = list(title = "Horizontal Distance from Center of Plate (ft)", zeroline = FALSE, 
+                 showgrid = FALSE, range = c(-2, 2)),
+    yaxis = list(title = "Vertical Distance from Plate (ft)", zeroline = FALSE, 
+                 showgrid = FALSE, range = c(-1, 5)),
+    shapes = contact_shapes_list
+  )
+
+fig <- plot_ly(
+  type = 'scatter',
+  mode='markers',
+  data = df,
+  x = ~ContactPositionZ,
+  y = ~ContactPositionX,
+  color=~ExitSpeed,
+  marker=list(
+    size=8,
+    colorbar=list(
+      title='Colorbar'
+    ),
+    colorscale='RdBu',
+    reversescale =F,
+    showscale = F
+  ),
+  text = ~ExitSpeed
+)
+fig <- fig %>% layout(
+  xaxis = list(
+    showgrid = F,
+    zeroline = F
+  ),
+  yaxis = list(
+    showgrid = F,
+    zeroline = F
+  )
+)
+fig
 
 
 

@@ -10,6 +10,9 @@ library(readxl)
 
 data = read_xlsx('2025-2026_Data copy.xlsx', sheet = 1)
 
+data = data %>% select(-4,-8,-12,-15,-29, -52:-54,-56, -61:-69,-72:-76,-81:-83,
+                       -87:-96, -98, -101:-110, -112:-138, -146:-168)
+
 game =
   filter(data, TaggedPitchType != 'Other') %>% 
   mutate(
@@ -28,7 +31,8 @@ game =
     ArmRad = atan2(RelHeight, RelSide),
     ArmDeg = ArmRad * (180/pi),
     ArmDeg = ifelse(PitcherThrows == "Right", ArmDeg, 180-ArmDeg),
-    ABlabel = paste(Inn, PAofInning, sep = "-")
+    ABlabel = paste(Inn, PAofInning, sep = "-"),
+    theta = 90 - Angle
   ) %>% 
   rename(
     PAOutcome = KorBB,
@@ -43,10 +47,8 @@ game =
 game = 
   game %>% 
   group_by(Date, Batter) %>% 
-  mutate(AB = dense_rank(ABlabel), .after = Time) %>% 
+  mutate(AB = dense_rank(ABlabel), .after = Date) %>% 
   ungroup()
-
-
 
 # Define server logic required to draw a histogram ----
 server <- function(input, output, session) {
@@ -90,13 +92,75 @@ server <- function(input, output, session) {
     'In Play' = 'InPlay', 'HBP' = 'HitByPitch' 
   )
   
-  # --- updated reactive/observer section: preserves selections both ways ---
+  # Hitter Shape lists ----
+  
+  hitterPlate <- data.frame(
+    x0 = c(-0.708, -0.708, 0.708, -0.708, 0),
+    y0 = c(0.25, 0.25, 0.25, 0.15, 0),
+    x1 = c(0.708, -0.708, 0.708, 0, 0.708),
+    y1 = c(0.25, 0.15, 0.15, 0, 0.15)
+  )
+  
+  ZoneLines = data.frame(
+    x0 = c(-0.2763888, 0.2763888, -0.8291667, -0.8291667),
+    y0 = c(1.5, 1.5, 2.166667, 2.833333),
+    x1 = c(-0.2763888, 0.2763888, 0.8291667, 0.8291667),
+    y1 = c(3.5, 3.5, 2.166667, 2.833333)
+  )
+  
+  # Add a rectangle from (2, 2) to (3, 3)
+  Zone_list <- list(
+    type = "rect",
+    x0 = -0.8291667, y0 = 1.5,
+    x1 = 0.8291667, y1 = 3.5,
+    line = list(color = "black", width = 3),
+    layer = 'below'
+  )
+  
+  # Convert each row to a shape list
+  ZoneMark_list <- pmap(ZoneLines, function(x0, y0, x1, y1) {
+    list(type = "line",
+         x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+         line = list(color = "black", width = 3, dash = 'dash'),
+         layer = 'below'
+    )
+  })
+  
+  # Convert each row to a shape list
+  HitterPlate_list <- pmap(hitterPlate, function(x0, y0, x1, y1) {
+    list(type = "line",
+         x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+         line = list(color = "black", width = 3),
+         layer = 'below'
+    )
+  })
+  
+  # Combine the shapes into a single list
+  hitter_all_shapes <- append(HitterPlate_list, c(list(Zone_list), ZoneMark_list))
 
-  # Pitching -----  
+  contact_shapes <- data.frame(
+    x0 = c(-0.708, -0.708, 0.708, 0.708, -0.708, -1.191, -1.191, 1.191, 1.191),
+    y0 = c(1.416, 1.416, 1.416, 0.7076667, 0.7076667, -1, 3.6, -1, 3.6),
+    x1 = c(0.708, -0.708, 0.708, 0, 0, -1.191, -2, 1.191, 2),
+    y1 = c(1.416, 0.7076667, 0.7076667, 0, 0, 3.6, 3.6, 3.6, 3.6)
+  )
+  
+  # Convert each row to a shape list
+  contact_shapes_list <- pmap(contact_shapes, function(x0, y0, x1, y1) {
+    list(type = "line",
+         x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+         line = list(color = "black", width = 3),
+         layer = 'below'
+    )
+  })
+  
+  
+  
+# Pitching -----
 
 #> Filtering and Display Logic ----
   # Reactive that filters by season (if your data has Season)
-  season_filtered <- reactive({
+  pitcher_season_filtered <- reactive({
     req(input$pitcher_season_select)
     df <- game
     df = filter(df, PitcherTeam == "MER_BEA")
@@ -109,7 +173,7 @@ server <- function(input, output, session) {
   # When season changes: populate pitcher choices but leave selection empty by default;
   # preserve existing pitcher/date if still valid for the new season.
   observeEvent(input$pitcher_season_select, {
-    df <- season_filtered()
+    df <- pitcher_season_filtered()
     pitchers <- sort(unique(df$Pitcher))
     dates <- sort(unique(df$Date))
     
@@ -149,8 +213,8 @@ server <- function(input, output, session) {
       return()
     }
     
-    df_season <- season_filtered()
-    df_pitcher = season_filtered() %>% filter(Pitcher == input$pitcher_select)
+    df_season <- pitcher_season_filtered()
+    df_pitcher = pitcher_season_filtered() %>% filter(Pitcher == input$pitcher_select)
     
     # compute dates for this pitcher
     dates <- df_season %>%
@@ -202,7 +266,7 @@ server <- function(input, output, session) {
   # and preserve the previously chosen pitcher if still valid (vice versa)
   observeEvent(input$pitcher_date_select, {
     # If date is empty (cleared), restore full pitcher list for the season but preserve selection if valid
-    df_season <- season_filtered()
+    df_season <- pitcher_season_filtered()
     
     if (is.null(input$pitcher_date_select) || input$pitcher_date_select == "") {
       all_pitchers <- sort(unique(df_season$Pitcher))
@@ -244,13 +308,13 @@ server <- function(input, output, session) {
   # Filter reactives: require a pitcher be selected before returning data.
   pitcher_filtered <- reactive({
     req(input$pitcher_select)  # ensures downstream outputs wait for pitcher
-    df <- season_filtered()
+    df <- pitcher_season_filtered()
     df <- df %>% filter(Pitcher == input$pitcher_select)
     df
   })
   
   #> Date and other filters reactive ----
-  date_and_other_filtered <- reactive({
+  pitcher_final_filtered <- reactive({
     df <- pitcher_filtered()  # req in pitcher_filtered forces pitcher selection
     if (!is.null(input$pitcher_date_select) && input$pitcher_date_select != "" && input$pitcher_date_select != "All") {
       df <- df %>% filter(Date == input$pitcher_date_select)
@@ -260,8 +324,8 @@ server <- function(input, output, session) {
       df <- df %>% filter(Pitch %in% input$pitcher_pitch_type_select)
     }
     # Batter Hand
-    if (!is.null(input$pitcher_batter_hand_select) && length(input$pitcher_batter_hand_select) > 0) {
-      df <- df %>% filter(BatterSide %in% input$pitcher_batter_hand_select)
+    if (!is.null(input$batter_hand_select) && length(input$batter_hand_select) > 0) {
+      df <- df %>% filter(BatterSide %in% input$batter_hand_select)
     }
     if (!is.null(input$pitcher_pitch_call_select) && length(input$pitcher_pitch_call_select) > 0) {
       df <- df %>% filter(PitchCall %in% input$pitcher_pitch_call_select)
@@ -287,38 +351,212 @@ server <- function(input, output, session) {
     df
   })
   
-  pitcher = reactive({
-    req(input$pitcher_select)
-    df = date_and_other_filtered()
+# pitcher = reactive({
+#   req(input$pitcher_select)
+#   df = pitcher_final_filtered()
+#   df
+# })
+  
+  # Hitting ----
+  # Reactive that filters by season (if your data has Season)
+  hitter_season_filtered <- reactive({
+    req(input$hitter_season_select)
+    df <- game
+    df = filter(df, BatterTeam == "MER_BEA")
+    if ("Season" %in% names(df)) {
+      df <- df %>% filter(Season == input$hitter_season_select)
+    }
     df
   })
   
-#  vals <- reactiveValues(updating = FALSE)
+  # When season changes: populate pitcher choices but leave selection empty by default;
+  # preserve existing pitcher/date if still valid for the new season.
+  observeEvent(input$hitter_season_select, {
+    df <- hitter_season_filtered()
+    hitters <- sort(unique(df$Batter))
+    dates <- sort(unique(df$Date))
+    
+    # Preserve existing pitcher if still present in the new season, otherwise clear
+    new_hitter_selected <- if (!is.null(input$hitter_select) && input$hitter_select %in% hitters) {
+      input$hitter_select
+    } else {
+      character(0)  # empty selection
+    }
+    
+    # Preserve existing date if still present in the new season, otherwise clear
+    new_date_selected <- if (!is.null(input$hitter_date_select) && input$hitter_date_select %in% dates) {
+      input$hitter_date_select
+    } else {
+      character(0)
+    }
+    
+    updateSelectInput(session, "hitter_select",
+                      choices = hitters,
+                      selected = new_hitter_selected)
+    
+    # Keep date list empty until a pitcher is selected (UX choice). If you prefer all dates shown here,
+    # change choices = dates and selected = new_date_selected
+    updateSelectInput(session, "hitter_date_select",
+                      choices = character(0),
+                      selected = new_date_selected)
+  }, ignoreNULL = FALSE)
   
-#  observeEvent(list(input$pitch_call_select, input$hit_type_select), {
-#    req(!vals$updating)
-#    df = pitcher()
-#    
-#    vals$updating <- TRUE
-#    
-#    updateSelectizeInput(session, 'hit_type_select',
-#                         choices = hit_types[hit_types %in% unique(df$HitType)],
-#                         selected = input$hit_type_select)
-#    updateSelectizeInput(session, 'pitch_call_select',
-#                         choices = pitch_calls[pitch_calls %in% unique(df$PitchCall)],
-#                         selected = input$pitch_call_select)
-#    updateSelectizeInput(session, 'PA_result_select',
-#                         choices = play_results[play_results %in% unique(df$PlayResult)],
-#                         selected = NULL)
-#    
-#    vals$updating <- FALSE
-#  })
+  # When a pitcher is selected: update date choices to only that pitcher's dates,
+  # and preserve the previously chosen date if it's still valid
+  observeEvent(input$hitter_select, {
+    # If no pitcher selected (cleared), clear dates and return
+    if (is.null(input$hitter_select) || input$hitter_select == "") {
+      updateSelectInput(session, "hitter_date_select",
+                        choices = character(0),
+                        selected = character(0))
+      return()
+    }
+    
+    df_season <- hitter_season_filtered()
+    df_hitter = hitter_season_filtered() %>% filter(Batter == input$hitter_select)
+    
+    # compute dates for this pitcher
+    dates <- df_season %>%
+      filter(Batter == input$hitter_select) %>%
+      pull(Date) %>%
+      unique() %>%
+      sort()
+    
+    date_choices <- c("All", dates)
+    
+    # preserve existing date selection if still valid for this pitcher; otherwise default to "All"
+    new_date_selected <- if (!is.null(input$hitter_date_select) && input$hitter_date_select %in% date_choices) {
+      input$hitter_date_select
+    } else {
+      "All"
+    }
+    
+    updateSelectInput(session, "hitter_date_select",
+                      choices = date_choices,
+                      selected = new_date_selected)
+    updateSelectizeInput(session, 'hitter_pitch_type_select',
+                         choices = pitch_order[pitch_order %in% unique(df_hitter$Pitch)],
+                         selected = pitch_order[pitch_order %in% unique(df_hitter$Pitch)])
+    updateSelectizeInput(session, 'hitter_pitch_call_select',
+                         choices = pitch_calls[pitch_calls %in% unique(df_hitter$PitchCall)],
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_outs_select',
+                         choices = sort(unique(as.character(df_hitter$Outs))),
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_hit_type_select',
+                         choices = hit_types[hit_types %in% unique(df_hitter$HitType)],
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_count_select',
+                         choices = count_types[count_types %in% unique(df_hitter$Count)],
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_balls_select',
+                         choices = sort(unique(as.character(df_hitter$Balls))),
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_strikes_select',
+                         choices = sort(unique(as.character(df_hitter$Strikes))),
+                         selected = NULL)
+    updateSelectizeInput(session, 'hitter_PA_result_select',
+                         choices = play_results[play_results %in% unique(df_hitter$PlayResult)],
+                         selected = NULL)
+    
+  }, ignoreNULL = FALSE)
+  
+  # When a date is selected: update pitcher choices to only pitchers who pitched that date,
+  # and preserve the previously chosen pitcher if still valid (vice versa)
+  observeEvent(input$hitter_date_select, {
+    # If date is empty (cleared), restore full pitcher list for the season but preserve selection if valid
+    df_season <- hitter_season_filtered()
+    
+      if (is.null(input$hitter_date_select) || input$hitter_date_select == "") {
+      all_hitters <- sort(unique(df_season$Batter))
+      new_hitter_selected <- if (!is.null(input$hitter_select) && input$hitter_select %in% all_hitters) {
+        input$hitter_select
+      } else {
+        character(0)
+      }
+      updateSelectInput(session, "hitter_select",
+                        choices = all_hitters,
+                        selected = new_hitter_selected)
+      return()
+      }
+    
+    # if Date == "All" show all pitchers for the season
+    if (input$hitter_date_select == "All") {
+      hitters_for_date <- sort(unique(df_season$Batter))
+    } else {
+      hitters_for_date <- df_season %>%
+        filter(Date == input$hitter_date_select) %>%
+        pull(Batter) %>%
+        unique() %>%
+        sort()
+    }
+    
+    # preserve existing pitcher if still in the filtered list; otherwise clear selection (empty)
+    new_hitter_selected <- if (!is.null(input$hitter_select) && input$hitter_select %in% hitters_for_date) {
+      input$hitter_select
+    } else {
+      character(0)
+    }
+    
+    updateSelectInput(session, "hitter_select",
+                      choices = hitters_for_date,
+                      selected = new_hitter_selected)
+  }, ignoreNULL = FALSE)
+  
+  #> Hitter Filtered ----
+  # Filter reactives: require a pitcher be selected before returning data.
+  hitter_filtered <- reactive({
+    req(input$hitter_select)  # ensures downstream outputs wait for pitcher
+    df <- hitter_season_filtered()
+    df <- df %>% filter(Batter == input$hitter_select)
+    df
+  })
+  
+  #> Hitter final filters reactive ----
+  hitter_final_filtered <- reactive({
+    df <- hitter_filtered()  # req in pitcher_filtered forces pitcher selection
+    if (!is.null(input$hitter_date_select) && input$hitter_date_select != "" && input$hitter_date_select != "All") {
+      df <- df %>% filter(Date == input$hitter_date_select)
+    }
+    # Pitch type (multiple selection)
+    if (!is.null(input$hitter_pitch_type_select) && length(input$hitter_pitch_type_select) > 0) {
+      df <- df %>% filter(Pitch %in% input$hitter_pitch_type_select)
+    }
+    # Batter Hand
+    if (!is.null(input$hitter_batter_hand_select) && length(input$hitter_batter_hand_select) > 0) {
+      df <- df %>% filter(BatterSide %in% input$hitter_batter_hand_select)
+    }
+    if (!is.null(input$hitter_pitch_call_select) && length(input$hitter_pitch_call_select) > 0) {
+      df <- df %>% filter(PitchCall %in% input$hitter_pitch_call_select)
+    }
+    if (!is.null(input$hitter_outs_select) && length(input$hitter_outs_select) > 0) {
+      df <- df %>% filter(as.character(Outs) %in% input$hitter_outs_select)
+    }
+    if (!is.null(input$hitter_hit_type_select) && length(input$hitter_hit_type_select) > 0) {
+      df <- df %>% filter(HitType %in% input$hitter_hit_type_select)
+    }
+    if (!is.null(input$hitter_count_select) && length(input$hitter_count_select) > 0) {
+      df <- df %>% filter(Count %in% input$hitter_count_select)
+    }
+    if (!is.null(input$hitter_balls_select) && length(input$hitter_balls_select) > 0) {
+      df <- df %>% filter(Balls %in% input$hitter_balls_select)
+    }
+    if (!is.null(input$hitter_strikes_select) && length(input$hitter_strikes_select) > 0) {
+      df <- df %>% filter(Strikes %in% input$hitter_strikes_select)
+    }
+    if (!is.null(input$hitter_PA_result_select) && length(input$hitter_PA_result_select) > 0) {
+      df <- df %>% filter(PlayResult %in% input$hitter_PA_result_select)
+    }
+    df
+  })
   
   
   
+  # All Outputs ----
   
+  #> Pitching Outputs ----
   
-  # Top Gun Table ----
+  #>> Top Gun Table ----
   TopGunTable = 
     game %>% 
     filter(PitcherTeam == "MER_BEA") %>% 
@@ -337,12 +575,12 @@ server <- function(input, output, session) {
       formatRound('Velo', 2)
   })
   
-  # Pitcher Metrics Table ----
+  #>> Pitcher Metrics Table ----
   output$PitcherMetrics = DT::renderDataTable({
     validate(
       need(!is.null(input$pitcher_select) && input$pitcher_select != "", "")
     )
-    df <- date_and_other_filtered()
+    df <- pitcher_final_filtered()
     
     table = df %>%
       group_by(Pitch) %>% 
@@ -411,13 +649,13 @@ server <- function(input, output, session) {
     
   })
   
-  # Pitch Movement Plot 1 ----
+  #>> Pitch Movement Plot 1 ----
   output$PitchMovementPlot1 = renderPlotly({
     validate(
       need(!is.null(input$pitcher_select) && input$pitcher_select != "", "Select a pitcher to see stats")
     )
     
-    df = date_and_other_filtered()
+    df = pitcher_final_filtered()
     
     plot_ly(df, color = ~Pitch, colors = color_map) %>% 
       add_trace(x = ~HB, y = ~IVB, type = 'scatter', mode = 'markers',
@@ -449,12 +687,12 @@ server <- function(input, output, session) {
     
   })
   
-# Strike Zone Plots ----
-  output$StrikeZone1 = renderPlotly({
+#>> Strike Zone Plots ----
+  output$PitcherStrikeZone1 = renderPlotly({
     validate(
       need(!is.null(input$pitcher_select) && input$pitcher_select != "", "Select a pitcher to see stats")
     )
-    df = date_and_other_filtered()
+    df = pitcher_final_filtered()
     plot_ly(df, color = ~Pitch, colors = color_map) %>% 
       add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
                 marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1)), fill = 'none',
@@ -516,13 +754,13 @@ server <- function(input, output, session) {
       )
   })
   
-# Release Point Plots ----
+#>> Release Point Plots ----
   
   output$ReleasePoint1 = renderPlotly({
     validate(
       need(!is.null(input$pitcher_select) && input$pitcher_select != "", "Select a pitcher to see stats")
     )
-    df = date_and_other_filtered()
+    df = pitcher_final_filtered()
     plot_ly(df, color = ~Pitch, colors = color_map) %>% 
       add_trace(x = ~RelSide, y = ~RelHeight, type = 'scatter', mode = 'markers', 
                 marker = list(size = 8, line = list(color = 'black', width = 1))) %>% 
@@ -539,16 +777,147 @@ server <- function(input, output, session) {
         ))
   })
   
+#> Hitting Outputs ----
+
+#>> Hitting Metrics -----
+
+output$HitterMetricsTable = DT::renderDataTable({
+  validate(
+    need(!is.null(input$hitter_select) && input$hitter_select != "", "")
+  )
+  df = hitter_final_filtered()
+  table = df %>% 
+    group_by(PitcherThrows) %>%
+    summarise(
+      "#" = n(),
+      "%" = percent(n() / length(.$Pitch)),
+      "H" = length(which(PlayResult %in% c("Single", "Double", "Triple", "HomeRun"))),
+      'FC' = length(which(PlayResult == 'FieldersChoice')), #10
+      'K' = length(which(PAOutcome == 'Strikeout')),
+      'E' = length(which(PlayResult == 'Error')),
+      'O' = length(which(PlayResult == 'Out')),
+      'PA' = length(which(Count == '0-0')),
+      'AB' = FC + H + E + O + K,
+      "Avg EV" = mean(ExitSpeed, na.rm = TRUE),
+      "Max EV" = max(ExitSpeed, na.rm = TRUE),
+      "LA" = mean(Angle, na.rm = TRUE),
+      "Hit Spin" = mean(HitSpinRate, na.rm = TRUE),
+      "Hard-Hit %" = (length(which(ExitSpeed>95))/n()) %>% percent(2),
+      "Barrel %" = (length(which(ExitSpeed >= 95 & Angle >= 10 & Angle <= 35))/n()) %>% percent(2)
+    ) %>% column_to_rownames(var = "PitcherThrows") %>% 
+    select(-FC,-K,-E,-O) %>% mutate(across(where(is.numeric), round, 2))
   
+  DT::datatable(table, 
+                rownames = TRUE,
+                options = list(
+                  dom = 't',
+                  paging = FALSE,
+                  ordering = FALSE,
+                  columnDefs = list(
+                    list(className = 'dt-center', targets = "_all")
+                  )
+                )
+  )
   
-  # Example plot that waits for pitcher selection:
-  output$veloPlot <- renderPlot({
-    validate(
-      need(!is.null(input$pitcher_select) && input$pitcher_select != "", "Select a pitcher to see stats")
+})
+  
+
+#>> Hitter Strike Zone  ---------------------------------------------------------------
+  
+output$HitterStrikeZone1 = renderPlotly({
+  validate(
+    need(!is.null(input$hitter_select) && input$hitter_select != "", "Select a batter to see stats")
+  )
+  df = hitter_final_filtered()
+  plot_ly(df, color = ~Pitch, colors = color_map) %>% 
+    add_trace(x = ~PlateLocSide, y = ~PlateLocHeight, type = 'scatter', mode = 'markers',
+              marker = list(size = 8, opacity = 1, line = list(color = 'black',width = 1))) %>% 
+    config(displayModeBar = F) %>% 
+    layout(
+      title = list(text = 'Strike Zone', x = .55),
+      xaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-3, 3)),
+      yaxis = list(title = "", zeroline = FALSE, showgrid = FALSE, range = c(-0.5, 4.5)),
+      showlegend = F,
+      shapes = hitter_all_shapes
     )
-    df <- date_and_other_filtered()
-    req(nrow(df) > 0)
-    ggplot(df, aes(x = Velo)) + geom_density(fill = "steelblue", alpha = 0.6)
+  
+})
+
+  
+
+#>> Hitter Contact Chart --------------------------------------------------------------
+
+output$HitterContactChart1 = renderPlotly({
+  validate(
+    need(!is.null(input$hitter_select) && input$hitter_select != "", "Select a batter to see stats")
+  )
+  df = hitter_final_filtered()
+  df = df %>% filter(PitchCall == "InPlay")
+  
+  plot_ly(
+    data = df,
+    x = ~ContactPositionZ,
+    y = ~ContactPositionX,
+    type = "scatter",
+    mode = "markers",
+    marker = list(size = 10, opacity = 1, color = ~ExitSpeed, colorscale = 'RdBu',
+                  line = list(width = 0.5, color = "#222222"), showscale = FALSE),
+    text = ~paste("EV:", df$ExitSpeed %>% round(2), "<br>", 
+                  df$HitType),
+    customdata = ~PitchNo,
+    hovertemplate = "%{text}<extra>%{customdata}</extra>"
+  ) %>%
+    config(displayModeBar = F) %>% 
+    layout(
+      title = list(text = "Contact Chart", x = .55),
+      xaxis = list(title = "Contact Position X (ft)", zeroline = FALSE, 
+                   showgrid = FALSE, range = c(-2, 2)),
+      yaxis = list(title = "Contact Position Y (ft)", zeroline = FALSE, 
+                   showgrid = FALSE, range = c(-1, 5)),
+      shapes = contact_shapes_list
+    )
+})
+
+#>> Launch Exit Scatter --------------------------------------------------------------
+  
+  output$HitterLaunchExit1 = renderPlotly({
+    validate(
+      need(!is.null(input$hitter_select) && input$hitter_select != "", "Select a batter to see stats")
+    )
+    df = hitter_final_filtered()
+    
+    plot_ly(
+      data = df, type = 'scatterpolar', mode = 'markers', r = ~ExitSpeed %>% round(2), theta = ~theta,
+      marker = list(size = 8, opacity = 0.8, color = ~ExitSpeed, colorscale = 'RdBu', showscale = TRUE),
+      text = ~Angle %>% round(2),
+      hovertemplate = paste(
+        "<b>Exit Velo:</b> %{r} mph<br>",
+        "<b>Launch Angle: </b>%{text}°<br>",
+        "<extra></extra>"
+      )
+    ) %>%
+      config(displayModeBar = F) %>% 
+      layout(
+        title = list(text = "Launch Exit Scatter Chart", x = .6, font = list(size = 15)),
+        polar = list(
+          sector = c(-90, 90),
+          radialaxis = list(
+            #title = "Exit Velocity (mph)",
+            range = c(20, 120),       # Adjust to your data
+            angle = 90,              # Put labels on top
+            tickfont = list(size = 12, color = 'black'),
+            tickangle = 90
+          ),
+          angularaxis = list(
+            direction = "clockwise",
+            rotation = 90,           # 90° = CF
+            tickvals = c(0, 30, 60, 90, 120, 150, 180),
+            ticktext = c("90", "60", "30", "0", "-30", '-60', '-90'),
+            tickfont = list(size = 10)
+          )
+        ),
+        showlegend = F
+      )
   })
   
   
